@@ -1,0 +1,11 @@
+# Default iOS bundle identifier
+app_identifier("com.accessibility.superapp")
+
+# Apple ID for App Store Connect auth
+apple_id("developer@accessibility-superapp.com")
+
+# Developer Portal Team ID
+team_id("ABC123XYZ4")
+
+# iTunes Connect Team ID
+itc_team_id("1188992200")

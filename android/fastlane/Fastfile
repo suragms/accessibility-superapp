@@ -1,0 +1,26 @@
+default_platform(:android)
+
+platform :android do
+  desc "Prepares and compiles the production Android App Bundle (AAB)"
+  lane :build_release do
+    Dir.chdir("../..") do
+      sh("flutter", "build", "appbundle", "--release")
+    end
+  end
+
+  desc "Builds and uploads the signed app bundle directly to Google Play Internal track"
+  lane :upload_internal do
+    # 1. Build the production release bundle
+    build_release
+
+    # 2. Distribute to Google Play Console Internal Test Track
+    upload_to_play_store(
+      track: 'internal',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end

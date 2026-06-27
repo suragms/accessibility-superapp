@@ -1,0 +1,33 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Synchronizes App Store code signing certificates and profiles via Match"
+  lane :sync_certificates do
+    match(
+      type: "appstore",
+      readonly: true
+    )
+  end
+
+  desc "Prepares and compiles the production iOS Application archive (IPA)"
+  lane :build_release do
+    # Ensure signing profiles are active
+    sync_certificates
+
+    Dir.chdir("../..") do
+      sh("flutter", "build", "ipa", "--release")
+    end
+  end
+
+  desc "Builds and uploads the signed application directly to Apple TestFlight"
+  lane :upload_testflight do
+    # 1. Compile the build archive
+    build_release
+
+    # 2. Upload to App Store Connect TestFlight
+    upload_to_testflight(
+      ipa: '../build/ios/ipa/accessibility_super_app.ipa',
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
