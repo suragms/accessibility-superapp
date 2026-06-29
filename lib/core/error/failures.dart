@@ -1,4 +1,5 @@
 import 'exceptions.dart';
+import '../../features/auth/domain/exceptions/auth_exception.dart';
 
 /// Representation of business-level failures returned from Domain repositories.
 /// Strictly decoupled from UI or data layer specifics.

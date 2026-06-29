@@ -28,11 +28,6 @@ class SpeechException extends AppException {
       : super(message, code);
 }
 
-class AuthException extends AppException {
-  const AuthException({required String message, String? code})
-      : super(message, code);
-}
-
 class ValidationException extends AppException {
   const ValidationException({required String message, String? code})
       : super(message, code);

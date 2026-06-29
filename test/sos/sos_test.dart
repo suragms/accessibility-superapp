@@ -1,14 +1,66 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 import 'package:accessibility_super_app/core/database/app_database.dart';
+import 'package:accessibility_super_app/core/providers/current_user_provider.dart';
 import 'package:accessibility_super_app/core/services/hardware_service.dart';
 import 'package:accessibility_super_app/core/services/location_service.dart';
 import 'package:accessibility_super_app/core/services/shake_service.dart';
 import 'package:accessibility_super_app/core/services/tts_service.dart';
 import 'package:accessibility_super_app/features/sos/data/repositories/sos_repository.dart';
 import 'package:accessibility_super_app/features/sos/presentation/controllers/sos_controller.dart';
+
+/// Mock UrlLauncher platform — intercepts launchUrl calls so we can assert
+/// that HardwareService builds the correct `sms:` and `tel:` URIs without
+/// touching real platform code.
+class MockUrlLauncherPlatform extends Fake
+    with MockPlatformInterfaceMixin
+    implements UrlLauncherPlatform {
+  final List<String> launchedUrls = [];
+  bool _response = true;
+
+  void setResponse(bool response) => _response = response;
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => _response;
+
+  @override
+  Future<bool> launch(
+    String url, {
+    required bool useSafariVC,
+    required bool useWebView,
+    required bool enableJavaScript,
+    required bool enableDomStorage,
+    required bool universalLinksOnly,
+    required Map<String, String> headers,
+    String? webOnlyWindowName,
+  }) async {
+    launchedUrls.add(url);
+    return _response;
+  }
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    return _response;
+  }
+
+  @override
+  Future<void> closeWebView() async {}
+
+  @override
+  Future<bool> supportsMode(PreferredLaunchMode mode) async => _response;
+
+  @override
+  Future<bool> supportsCloseForMode(PreferredLaunchMode mode) async => false;
+}
 
 /// Mock GPS Locator
 class MockLocationService extends LocationService {
@@ -29,7 +81,7 @@ class MockLocationService extends LocationService {
   }
 }
 
-/// Mock Hardware dialers
+/// Mock Hardware dialers — used for controller-level integration tests.
 class MockHardwareService extends HardwareService {
   final List<Map<String, String>> sentSmsLogs = [];
   final List<String> callsDialed = [];
@@ -58,7 +110,7 @@ class MockSosRepository implements SosRepository {
     const EmergencyContact(id: 'c-01', name: 'John Doe', phone: '9876543210', relationship: 'Spouse', isPrimary: true),
     const EmergencyContact(id: 'c-02', name: 'Dr. Smith', phone: '9999988888', relationship: 'Physician', isPrimary: false),
   ];
-  MedicalCard? cardMock = const MedicalCard(id: 'default-medical-card-id', bloodType: 'AB-');
+  MedicalCard? cardMock = const MedicalCard(id: 'default-medical-card-id', userId: 'test-user', bloodType: 'AB-');
 
   @override
   AppDatabase get db => throw UnimplementedError();
@@ -124,6 +176,71 @@ class MockTtsService implements TtsService {
 }
 
 void main() {
+  late MockUrlLauncherPlatform mockLauncher;
+
+  setUp(() {
+    mockLauncher = MockUrlLauncherPlatform();
+    UrlLauncherPlatform.instance = mockLauncher;
+  });
+
+  group('HardwareService url_launcher integration', () {
+    test('sendSms launches correct sms: URI with URL-encoded body', () async {
+      final service = HardwareService();
+      final result = await service.sendSms(
+        phone: '9876543210',
+        message: 'EMERGENCY SOS ALERT! Help needed.',
+      );
+
+      expect(result, isTrue);
+      expect(mockLauncher.launchedUrls, hasLength(1));
+
+      final launchedUri = Uri.parse(mockLauncher.launchedUrls.first);
+      expect(launchedUri.scheme, 'sms');
+      expect(launchedUri.path, '9876543210');
+      expect(launchedUri.queryParameters['body'], 'EMERGENCY SOS ALERT! Help needed.');
+    });
+
+    test('sendSms URL-encodes special characters in message body', () async {
+      final service = HardwareService();
+      final result = await service.sendSms(
+        phone: '5551234567',
+        message: 'Lat: 12.9716, Lon: 77.5946 & Battery: 88%',
+      );
+
+      expect(result, isTrue);
+      final launchedUri = Uri.parse(mockLauncher.launchedUrls.first);
+      expect(launchedUri.queryParameters['body'], 'Lat: 12.9716, Lon: 77.5946 & Battery: 88%');
+    });
+
+    test('sendSms returns false when launchUrl throws', () async {
+      mockLauncher.setResponse(false);
+      final service = HardwareService();
+      final result = await service.sendSms(
+        phone: '123',
+        message: 'test',
+      );
+
+      expect(result, isFalse);
+    });
+
+    test('makeCall launches correct tel: URI', () async {
+      final service = HardwareService();
+      final result = await service.makeCall(phone: '9876543210');
+
+      expect(result, isTrue);
+      expect(mockLauncher.launchedUrls, hasLength(1));
+      expect(mockLauncher.launchedUrls.first, 'tel:9876543210');
+    });
+
+    test('makeCall returns false when launchUrl throws', () async {
+      mockLauncher.setResponse(false);
+      final service = HardwareService();
+      final result = await service.makeCall(phone: '123');
+
+      expect(result, isFalse);
+    });
+  });
+
   group('Emergency SOS Module Unit Tests', () {
     test('Verify initial configurations load successfully', () async {
       final mockRepo = MockSosRepository();
@@ -139,6 +256,7 @@ void main() {
           hardwareServiceProvider.overrideWithValue(hardware),
           shakeServiceProvider.overrideWithValue(shake),
           ttsServiceProvider.overrideWithValue(tts),
+          currentUserIdProvider.overrideWithValue('test-user-id'),
         ],
       );
       addTearDown(container.dispose);
@@ -168,6 +286,7 @@ void main() {
           hardwareServiceProvider.overrideWithValue(hardware),
           shakeServiceProvider.overrideWithValue(shake),
           ttsServiceProvider.overrideWithValue(tts),
+          currentUserIdProvider.overrideWithValue('test-user-id'),
         ],
       );
       addTearDown(container.dispose);
@@ -194,7 +313,10 @@ void main() {
 
       // Verify spoken rescue alert announcement was voiced
       expect(tts.spokenLines, hasLength(1));
-      expect(tts.spokenLines.first, contains('Caregivers are being contacted'));
+      expect(tts.spokenLines.first, contains('Opening Messages app'));
+
+      // Verify status message reflects final state
+      expect(state.statusMessage, contains('Please confirm sending each message'));
     });
 
     test('Verify physical accelerometer shake gesture triggers emergency sequences', () async {
@@ -211,6 +333,7 @@ void main() {
           hardwareServiceProvider.overrideWithValue(hardware),
           shakeServiceProvider.overrideWithValue(shake),
           ttsServiceProvider.overrideWithValue(tts),
+          currentUserIdProvider.overrideWithValue('test-user-id'),
         ],
       );
       addTearDown(container.dispose);

@@ -33,8 +33,29 @@ class AuthError extends AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository authRepository;
 
-  AuthNotifier({required this.authRepository})
-      : super(const AuthInitial());
+  AuthNotifier({required this.authRepository}) : super(const AuthInitial()) {
+    // Attempt to restore a cached session immediately on creation so that
+    // users who were previously authenticated are not forced to log in again
+    // every time the app restarts.
+    restoreSession();
+  }
+
+  /// Attempts to restore a previously cached session from the local Users
+  /// table or secure storage. Transitions to [Authenticated] on success or
+  /// [Unauthenticated] if no valid session is found.
+  Future<void> restoreSession() async {
+    state = const AuthLoading();
+    try {
+      final session = await authRepository.restoreSession();
+      if (session != null) {
+        state = Authenticated(session);
+      } else {
+        state = const Unauthenticated();
+      }
+    } catch (e) {
+      state = const Unauthenticated();
+    }
+  }
 
   /// Log in with email credentials.
   Future<void> loginWithEmail(String email, String password) async {
@@ -130,10 +151,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await authRepository.logout();
     state = const Unauthenticated();
   }
+
+  /// Sets offline authentication PIN.
+  Future<void> setOfflinePin(String pin) async {
+    if (state is Authenticated) {
+      final session = (state as Authenticated).session;
+      await authRepository.setOfflinePin(pin, session);
+    }
+  }
 }
 
 /// Provider exposing AuthNotifier state to widgets.
-final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final authNotifierProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthNotifier(authRepository: repository);
 });

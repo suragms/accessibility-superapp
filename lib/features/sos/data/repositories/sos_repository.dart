@@ -23,14 +23,16 @@ class SosRepository {
     return db.select(db.emergencyContacts).get();
   }
 
-  /// Inserts or updates medical health logs.
+  /// Inserts or updates medical health logs for a specific user.
   Future<void> saveMedicalCard(MedicalCard card) async {
     await db.into(db.medicalCards).insertOnConflictUpdate(card);
   }
 
-  /// Reads medical records.
-  Future<MedicalCard?> getMedicalCard(String cardId) async {
-    final query = db.select(db.medicalCards)..where((t) => t.id.equals(cardId));
+  /// Reads medical records for a specific user.
+  /// Returns the most recent medical card for the given [userId].
+  Future<MedicalCard?> getMedicalCard(String userId) async {
+    final query = db.select(db.medicalCards)
+      ..where((t) => t.userId.equals(userId));
     return query.getSingleOrNull();
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/accessibility/widgets/accessible_focus_group.dart';
 import '../../../../core/accessibility/widgets/semantic_container.dart';
+import '../../../../core/providers/current_user_provider.dart';
 import '../../../../core/router/route_names.dart';
 import '../../../../core/theme/accessibility_tokens.dart';
 import '../../../../core/widgets/accessible_button.dart';
@@ -23,13 +24,14 @@ class MedicationListScreen extends ConsumerStatefulWidget {
 }
 
 class _MedicationListScreenState extends ConsumerState<MedicationListScreen> {
-  static const String _userId = 'default-user-uid'; // Local fallback user ID
-
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(medicationControllerProvider.notifier).fetchActiveMedications(_userId);
+      final userId = currentUserId(ref);
+      if (userId != null) {
+        ref.read(medicationControllerProvider.notifier).fetchActiveMedications(userId);
+      }
     });
   }
 
@@ -127,7 +129,10 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> {
                                             icon: const Icon(Icons.delete_outline),
                                             tooltip: 'Delete schedule',
                                             onPressed: () {
-                                              ref.read(medicationControllerProvider.notifier).deleteMedication(med.id, _userId);
+                                              final userId = currentUserId(ref);
+                                              if (userId != null) {
+                                                ref.read(medicationControllerProvider.notifier).deleteMedication(med.id, userId);
+                                              }
                                             },
                                           ),
                                         ],

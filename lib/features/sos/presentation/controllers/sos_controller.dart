@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../../core/providers/current_user_provider.dart';
 import '../../../../core/services/hardware_service.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/shake_service.dart';
@@ -51,6 +52,7 @@ class SosController extends StateNotifier<SosState> {
   final HardwareService hardwareService;
   final ShakeService shakeService;
   final TtsService ttsService;
+  final String? userId;
 
   SosController({
     required this.sosRepository,
@@ -58,6 +60,7 @@ class SosController extends StateNotifier<SosState> {
     required this.hardwareService,
     required this.shakeService,
     required this.ttsService,
+    this.userId,
   }) : super(const SosState(
           contacts: [],
           isSosTriggered: false,
@@ -70,7 +73,9 @@ class SosController extends StateNotifier<SosState> {
   /// Loads stored contacts, health parameters, and battery levels.
   Future<void> loadDetails() async {
     final contactsList = await sosRepository.getContacts();
-    final card = await sosRepository.getMedicalCard('default-medical-card-id');
+    final card = userId != null
+        ? await sosRepository.getMedicalCard(userId!)
+        : null;
     final battery = await hardwareService.getBatteryLevel();
 
     state = state.copyWith(
@@ -104,11 +109,14 @@ class SosController extends StateNotifier<SosState> {
     }
 
     // 2. Announce loud voice notifications
-    await ttsService.speak('Emergency SOS activated. Caregivers are being contacted with your live location.');
+    await ttsService.speak(
+      'Emergency SOS activated. Opening Messages app to alert your emergency contacts, then dialing your primary contact.',
+    );
 
     // 3. Dispatch SMS alerts to emergency contacts
     final alertMsg = 'EMERGENCY SOS ALERT! User requires assistance. Battery: ${state.batteryLevel}%. Location: $coordinates';
     for (final contact in state.contacts) {
+      state = state.copyWith(statusMessage: 'Opening Messages app to alert ${contact.name}...');
       await hardwareService.sendSms(phone: contact.phone, message: alertMsg);
     }
 
@@ -119,8 +127,13 @@ class SosController extends StateNotifier<SosState> {
     );
 
     if (primary.phone.isNotEmpty) {
+      state = state.copyWith(statusMessage: 'Calling ${primary.name}...');
       await hardwareService.makeCall(phone: primary.phone);
     }
+
+    state = state.copyWith(
+      statusMessage: 'Emergency contacts alerted. Please confirm sending each message and confirm the call.',
+    );
   }
 
   /// Deactivates active emergency status alerts.
@@ -160,8 +173,10 @@ class SosController extends StateNotifier<SosState> {
     String? medications,
     String? notes,
   }) async {
+    if (userId == null) return;
     final card = MedicalCard(
-      id: 'default-medical-card-id',
+      id: '$userId-medical-card',
+      userId: userId!,
       bloodType: bloodType,
       allergies: allergies,
       medications: medications,
@@ -186,11 +201,13 @@ final sosControllerProvider =
   final hardware = ref.watch(hardwareServiceProvider);
   final shake = ref.watch(shakeServiceProvider);
   final tts = ref.watch(ttsServiceProvider);
+  final userId = ref.watch(currentUserIdProvider);
   return SosController(
     sosRepository: repo,
     locationService: location,
     hardwareService: hardware,
     shakeService: shake,
     ttsService: tts,
+    userId: userId,
   );
 });

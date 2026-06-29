@@ -12,6 +12,8 @@ class VoiceNavigationState {
   final String lastCommand;
   final CommandIntent lastIntent;
   final String? errorMessage;
+  final CommandIntent? pendingNavigation;
+  final bool isProcessing;
 
   const VoiceNavigationState({
     required this.isListening,
@@ -19,6 +21,8 @@ class VoiceNavigationState {
     required this.lastCommand,
     required this.lastIntent,
     this.errorMessage,
+    this.pendingNavigation,
+    this.isProcessing = false,
   });
 
   VoiceNavigationState copyWith({
@@ -27,6 +31,9 @@ class VoiceNavigationState {
     String? lastCommand,
     CommandIntent? lastIntent,
     String? errorMessage,
+    CommandIntent? pendingNavigation,
+    bool clearPendingNavigation = false,
+    bool? isProcessing,
   }) {
     return VoiceNavigationState(
       isListening: isListening ?? this.isListening,
@@ -34,6 +41,8 @@ class VoiceNavigationState {
       lastCommand: lastCommand ?? this.lastCommand,
       lastIntent: lastIntent ?? this.lastIntent,
       errorMessage: errorMessage, // Reset if null
+      pendingNavigation: clearPendingNavigation ? null : (pendingNavigation ?? this.pendingNavigation),
+      isProcessing: isProcessing ?? this.isProcessing,
     );
   }
 }
@@ -58,6 +67,8 @@ class VoiceNavigationController extends StateNotifier<VoiceNavigationState> {
           wakeWordActive: false,
           lastCommand: '',
           lastIntent: CommandIntent.unknown,
+          pendingNavigation: null,
+          isProcessing: false,
         ));
 
   /// Activates command listening loop.
@@ -80,11 +91,18 @@ class VoiceNavigationController extends StateNotifier<VoiceNavigationState> {
     state = state.copyWith(isListening: false);
   }
 
+  /// Clears the pending navigation intent.
+  void clearPendingNavigation() {
+    state = state.copyWith(clearPendingNavigation: true);
+  }
+
   /// Resets intent state trackers.
   void clearLastIntent() {
     state = state.copyWith(
       lastIntent: CommandIntent.unknown,
       lastCommand: '',
+      clearPendingNavigation: true,
+      isProcessing: false,
     );
   }
 
@@ -116,9 +134,12 @@ class VoiceNavigationController extends StateNotifier<VoiceNavigationState> {
       lastIntent: intent,
       wakeWordActive: false, // Reset wake word for next command session
       isListening: false,
+      isProcessing: true,
+      pendingNavigation: intent != CommandIntent.unknown ? intent : null,
     );
 
     await _executeCommandActions(intent, text);
+    state = state.copyWith(isProcessing: false);
   }
 
   Future<void> _executeCommandActions(CommandIntent intent, String utterance) async {

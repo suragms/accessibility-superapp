@@ -48,6 +48,42 @@ class MockMedicationRepository extends MedicationRepository {
   }
 }
 
+/// Mock NotificationService to verify scheduling and cancellation calls.
+class MockNotificationService extends NotificationService {
+  final List<Map<String, dynamic>> scheduledNotifications = [];
+  final List<String> cancelledNotifications = [];
+  bool cancelAllCalled = false;
+
+  MockNotificationService() : super();
+
+  @override
+  Future<void> scheduleNotification({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? soundPath,
+  }) async {
+    scheduledNotifications.add({
+      'id': id,
+      'title': title,
+      'body': body,
+      'scheduledTime': scheduledTime,
+      'soundPath': soundPath,
+    });
+  }
+
+  @override
+  Future<void> cancelNotification(String id) async {
+    cancelledNotifications.add(id);
+  }
+
+  @override
+  Future<void> cancelAllNotifications() async {
+    cancelAllCalled = true;
+  }
+}
+
 void main() {
   group('MedicationModule Logic Tests', () {
     test('Verify MedicationModel JSON conversions', () {
@@ -71,13 +107,13 @@ void main() {
 
     test('Verify MedicationController CRUD and Notification scheduling flow', () async {
       final mockRepo = MockMedicationRepository();
-      final notificationService = NotificationService();
+      final mockNotificationService = MockNotificationService();
       final calendarService = CalendarService();
 
       final container = ProviderContainer(
         overrides: [
           medicationRepositoryProvider.overrideWithValue(mockRepo),
-          notificationServiceProvider.overrideWithValue(notificationService),
+          notificationServiceProvider.overrideWithValue(mockNotificationService),
           calendarServiceProvider.overrideWithValue(calendarService),
         ],
       );
@@ -101,13 +137,52 @@ void main() {
       expect(mockRepo.activeMeds, hasLength(1));
       expect(mockRepo.activeMeds.first.name, equals('Aspirin'));
 
-      // Assert local notification alert is scheduled
-      expect(notificationService.activeAlarms, hasLength(1));
-      expect(notificationService.activeAlarms.first.id, equals('med-id-01'));
+      // Assert notification scheduling was called with correct parameters
+      expect(mockNotificationService.scheduledNotifications, hasLength(1));
+      expect(mockNotificationService.scheduledNotifications.first['id'], equals('med-id-01'));
+      expect(mockNotificationService.scheduledNotifications.first['title'], contains('Aspirin'));
+      expect(mockNotificationService.scheduledNotifications.first['body'], contains('1 Tablet'));
 
       // Assert calendar event is created
       expect(calendarService.events, hasLength(1));
       expect(calendarService.events.first.title, contains('Aspirin'));
+    });
+
+    test('Verify deleting a medication cancels its notification', () async {
+      final mockRepo = MockMedicationRepository();
+      final mockNotificationService = MockNotificationService();
+      final calendarService = CalendarService();
+
+      // Pre-populate with a medication
+      mockRepo.activeMeds.add(MedicationModel(
+        id: 'med-id-02',
+        userId: 'user-77',
+        name: 'Ibuprofen',
+        dosage: '2 Tablets',
+        cronSchedule: 'Twice daily',
+        createdAt: DateTime.now(),
+      ));
+
+      final container = ProviderContainer(
+        overrides: [
+          medicationRepositoryProvider.overrideWithValue(mockRepo),
+          notificationServiceProvider.overrideWithValue(mockNotificationService),
+          calendarServiceProvider.overrideWithValue(calendarService),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(medicationControllerProvider.notifier);
+
+      // Delete the medication
+      await controller.deleteMedication('med-id-02', 'user-77');
+
+      // Assert medication was removed from repository
+      expect(mockRepo.activeMeds, isEmpty);
+
+      // Assert notification was cancelled
+      expect(mockNotificationService.cancelledNotifications, hasLength(1));
+      expect(mockNotificationService.cancelledNotifications.first, equals('med-id-02'));
     });
 
     test('Verify compliance offline log syncing flow', () async {

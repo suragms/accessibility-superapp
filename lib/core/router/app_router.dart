@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/signup_screen.dart';
 import '../../features/auth/presentation/screens/pin_verify_screen.dart';
 import '../../features/auth/presentation/controllers/auth_notifier.dart';
 import '../../features/ai_assistant/presentation/screens/ai_assistant_screen.dart';
@@ -10,27 +11,12 @@ import '../../features/medication/presentation/screens/medication_list_screen.da
 import '../../features/medication/presentation/screens/medication_form_screen.dart';
 import '../../features/sos/presentation/screens/sos_screen.dart';
 import '../../features/caregiver/presentation/screens/caregiver_screen.dart';
+import '../../features/voice_navigation/presentation/screens/voice_navigation_screen.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/settings/presentation/controllers/settings_controller.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'route_names.dart';
-
-// Placeholder widgets representing feature screens (scaffolds) to compile router.
-// Presentation components will be populated in respective feature packages.
-class MockScreen extends StatelessWidget {
-  final String title;
-  const MockScreen({super.key, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-      ),
-    );
-  }
-}
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -38,9 +24,10 @@ final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(d
 /// Riverpod provider for GoRouter configuration.
 /// Allows dynamic updates (e.g. authentication status change redirects).
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final settings = ref.read(settingsControllerProvider);
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/login',
+    initialLocation: settings.hasSeenOnboarding ? '/login' : '/onboarding',
     debugLogDiagnostics: true,
     routes: [
       GoRoute(
@@ -54,15 +41,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PinVerifyScreen(),
       ),
       GoRoute(
+        path: '/signup',
+        name: 'signup',
+        builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
         path: '/onboarding',
         name: RouteNames.onboarding,
-        builder: (context, state) => const MockScreen(title: 'Onboarding Screen'),
+        builder: (context, state) => const OnboardingScreen(),
       ),
       // SOS Screen is modal-like, direct overlay reachable from anywhere
       GoRoute(
         path: '/sos',
         name: RouteNames.sos,
         builder: (context, state) => const SosScreen(),
+      ),
+      // Voice Navigation Screen is implemented as a global overlay (similar to /sos) because:
+      // 1. It provides a focused, immersive experience for voice interaction, minimizing visual clutter.
+      // 2. It avoids complicating the NavigationBar's selectedIndex state.
+      // 3. Tapping the FAB from any shell screen will push this overlay, and executing a navigation command will route to the target shell screen or pop back.
+      GoRoute(
+        path: '/voice-navigation',
+        name: RouteNames.voiceNavigation,
+        builder: (context, state) => const VoiceNavigationScreen(),
       ),
       // ShellRoute provides persistent bottom/side navigation tabs suitable for accessible navigation.
       ShellRoute(
@@ -74,7 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/home',
             name: RouteNames.home,
-            builder: (context, state) => const MockScreen(title: 'SuperApp Home Dashboard'),
+            builder: (context, state) => const HomeScreen(),
           ),
           GoRoute(
             path: '/ai-assistant',
@@ -106,17 +107,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings',
             name: RouteNames.settings,
-            builder: (context, state) => const MockScreen(title: 'Accessibility Settings'),
+            builder: (context, state) => const SettingsScreen(),
           ),
         ],
       ),
     ],
     // Global redirect handler for onboarding and auth logic
     redirect: (context, state) {
-      final authState = ref.read(authNotifierProvider);
-      final isLoggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/login-pin';
+      final settingsVal = ref.read(settingsControllerProvider);
+      if (!settingsVal.hasSeenOnboarding) {
+        if (state.matchedLocation != '/onboarding') {
+          return '/onboarding';
+        }
+        return null;
+      }
 
-      if (authState is Unauthenticated || authState is AuthInitial || authState is AuthError) {
+      if (state.matchedLocation == '/onboarding') {
+        return '/login';
+      }
+
+      final authState = ref.read(authNotifierProvider);
+      final isLoggingIn = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/login-pin' ||
+          state.matchedLocation == '/signup';
+
+      // While restoring session, allow current route to render without redirect
+      if (authState is AuthLoading || authState is AuthInitial) {
+        return null;
+      }
+
+      if (authState is Unauthenticated || authState is AuthError) {
         if (!isLoggingIn) return '/login';
       }
       if (authState is Authenticated && isLoggingIn) {
@@ -215,6 +235,17 @@ class NavigationShellContainer extends StatelessWidget {
             tooltip: 'Navigate to Settings',
           ),
         ],
+      ),
+      floatingActionButton: Semantics(
+        label: 'Activate voice navigation.',
+        button: true,
+        child: FloatingActionButton(
+          onPressed: () {
+            context.pushNamed(RouteNames.voiceNavigation);
+          },
+          tooltip: 'Activate voice navigation',
+          child: const Icon(Icons.mic, size: 30),
+        ),
       ),
     );
   }

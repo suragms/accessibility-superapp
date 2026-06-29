@@ -71,6 +71,17 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _passwordHashMeta = const VerificationMeta(
+    'passwordHash',
+  );
+  @override
+  late final GeneratedColumn<String> passwordHash = GeneratedColumn<String>(
+    'password_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -79,6 +90,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     token,
     batteryLevel,
     pinHash,
+    passwordHash,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -130,6 +142,15 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
       );
     }
+    if (data.containsKey('password_hash')) {
+      context.handle(
+        _passwordHashMeta,
+        passwordHash.isAcceptableOrUnknown(
+          data['password_hash']!,
+          _passwordHashMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -163,6 +184,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.string,
         data['${effectivePrefix}pin_hash'],
       ),
+      passwordHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password_hash'],
+      ),
     );
   }
 
@@ -179,6 +204,7 @@ class User extends DataClass implements Insertable<User> {
   final String? token;
   final int batteryLevel;
   final String? pinHash;
+  final String? passwordHash;
   const User({
     required this.id,
     this.name,
@@ -186,6 +212,7 @@ class User extends DataClass implements Insertable<User> {
     this.token,
     required this.batteryLevel,
     this.pinHash,
+    this.passwordHash,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -204,6 +231,9 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || pinHash != null) {
       map['pin_hash'] = Variable<String>(pinHash);
     }
+    if (!nullToAbsent || passwordHash != null) {
+      map['password_hash'] = Variable<String>(passwordHash);
+    }
     return map;
   }
 
@@ -221,6 +251,9 @@ class User extends DataClass implements Insertable<User> {
       pinHash: pinHash == null && nullToAbsent
           ? const Value.absent()
           : Value(pinHash),
+      passwordHash: passwordHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(passwordHash),
     );
   }
 
@@ -236,6 +269,7 @@ class User extends DataClass implements Insertable<User> {
       token: serializer.fromJson<String?>(json['token']),
       batteryLevel: serializer.fromJson<int>(json['batteryLevel']),
       pinHash: serializer.fromJson<String?>(json['pinHash']),
+      passwordHash: serializer.fromJson<String?>(json['passwordHash']),
     );
   }
   @override
@@ -248,6 +282,7 @@ class User extends DataClass implements Insertable<User> {
       'token': serializer.toJson<String?>(token),
       'batteryLevel': serializer.toJson<int>(batteryLevel),
       'pinHash': serializer.toJson<String?>(pinHash),
+      'passwordHash': serializer.toJson<String?>(passwordHash),
     };
   }
 
@@ -258,6 +293,7 @@ class User extends DataClass implements Insertable<User> {
     Value<String?> token = const Value.absent(),
     int? batteryLevel,
     Value<String?> pinHash = const Value.absent(),
+    Value<String?> passwordHash = const Value.absent(),
   }) => User(
     id: id ?? this.id,
     name: name.present ? name.value : this.name,
@@ -265,6 +301,7 @@ class User extends DataClass implements Insertable<User> {
     token: token.present ? token.value : this.token,
     batteryLevel: batteryLevel ?? this.batteryLevel,
     pinHash: pinHash.present ? pinHash.value : this.pinHash,
+    passwordHash: passwordHash.present ? passwordHash.value : this.passwordHash,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -276,6 +313,9 @@ class User extends DataClass implements Insertable<User> {
           ? data.batteryLevel.value
           : this.batteryLevel,
       pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      passwordHash: data.passwordHash.present
+          ? data.passwordHash.value
+          : this.passwordHash,
     );
   }
 
@@ -287,14 +327,15 @@ class User extends DataClass implements Insertable<User> {
           ..write('email: $email, ')
           ..write('token: $token, ')
           ..write('batteryLevel: $batteryLevel, ')
-          ..write('pinHash: $pinHash')
+          ..write('pinHash: $pinHash, ')
+          ..write('passwordHash: $passwordHash')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, email, token, batteryLevel, pinHash);
+      Object.hash(id, name, email, token, batteryLevel, pinHash, passwordHash);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -304,7 +345,8 @@ class User extends DataClass implements Insertable<User> {
           other.email == this.email &&
           other.token == this.token &&
           other.batteryLevel == this.batteryLevel &&
-          other.pinHash == this.pinHash);
+          other.pinHash == this.pinHash &&
+          other.passwordHash == this.passwordHash);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -314,6 +356,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String?> token;
   final Value<int> batteryLevel;
   final Value<String?> pinHash;
+  final Value<String?> passwordHash;
   final Value<int> rowid;
   const UsersCompanion({
     this.id = const Value.absent(),
@@ -322,6 +365,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.token = const Value.absent(),
     this.batteryLevel = const Value.absent(),
     this.pinHash = const Value.absent(),
+    this.passwordHash = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
@@ -331,6 +375,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.token = const Value.absent(),
     this.batteryLevel = const Value.absent(),
     this.pinHash = const Value.absent(),
+    this.passwordHash = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<User> custom({
@@ -340,6 +385,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? token,
     Expression<int>? batteryLevel,
     Expression<String>? pinHash,
+    Expression<String>? passwordHash,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -349,6 +395,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (token != null) 'token': token,
       if (batteryLevel != null) 'battery_level': batteryLevel,
       if (pinHash != null) 'pin_hash': pinHash,
+      if (passwordHash != null) 'password_hash': passwordHash,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -360,6 +407,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String?>? token,
     Value<int>? batteryLevel,
     Value<String?>? pinHash,
+    Value<String?>? passwordHash,
     Value<int>? rowid,
   }) {
     return UsersCompanion(
@@ -369,6 +417,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       token: token ?? this.token,
       batteryLevel: batteryLevel ?? this.batteryLevel,
       pinHash: pinHash ?? this.pinHash,
+      passwordHash: passwordHash ?? this.passwordHash,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -394,6 +443,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (pinHash.present) {
       map['pin_hash'] = Variable<String>(pinHash.value);
     }
+    if (passwordHash.present) {
+      map['password_hash'] = Variable<String>(passwordHash.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -409,6 +461,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('token: $token, ')
           ..write('batteryLevel: $batteryLevel, ')
           ..write('pinHash: $pinHash, ')
+          ..write('passwordHash: $passwordHash, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3069,6 +3122,15 @@ class $MedicalCardsTable extends MedicalCards
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _bloodTypeMeta = const VerificationMeta(
     'bloodType',
   );
@@ -3120,6 +3182,7 @@ class $MedicalCardsTable extends MedicalCards
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    userId,
     bloodType,
     allergies,
     medications,
@@ -3141,6 +3204,14 @@ class $MedicalCardsTable extends MedicalCards
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
     }
     if (data.containsKey('blood_type')) {
       context.handle(
@@ -3187,6 +3258,10 @@ class $MedicalCardsTable extends MedicalCards
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
       bloodType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blood_type'],
@@ -3214,12 +3289,14 @@ class $MedicalCardsTable extends MedicalCards
 
 class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   final String id;
+  final String userId;
   final String bloodType;
   final String? allergies;
   final String? medications;
   final String? emergencyNotes;
   const MedicalCard({
     required this.id,
+    required this.userId,
     required this.bloodType,
     this.allergies,
     this.medications,
@@ -3229,6 +3306,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
     map['blood_type'] = Variable<String>(bloodType);
     if (!nullToAbsent || allergies != null) {
       map['allergies'] = Variable<String>(allergies);
@@ -3245,6 +3323,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   MedicalCardsCompanion toCompanion(bool nullToAbsent) {
     return MedicalCardsCompanion(
       id: Value(id),
+      userId: Value(userId),
       bloodType: Value(bloodType),
       allergies: allergies == null && nullToAbsent
           ? const Value.absent()
@@ -3265,6 +3344,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MedicalCard(
       id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
       bloodType: serializer.fromJson<String>(json['bloodType']),
       allergies: serializer.fromJson<String?>(json['allergies']),
       medications: serializer.fromJson<String?>(json['medications']),
@@ -3276,6 +3356,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
       'bloodType': serializer.toJson<String>(bloodType),
       'allergies': serializer.toJson<String?>(allergies),
       'medications': serializer.toJson<String?>(medications),
@@ -3285,12 +3366,14 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
 
   MedicalCard copyWith({
     String? id,
+    String? userId,
     String? bloodType,
     Value<String?> allergies = const Value.absent(),
     Value<String?> medications = const Value.absent(),
     Value<String?> emergencyNotes = const Value.absent(),
   }) => MedicalCard(
     id: id ?? this.id,
+    userId: userId ?? this.userId,
     bloodType: bloodType ?? this.bloodType,
     allergies: allergies.present ? allergies.value : this.allergies,
     medications: medications.present ? medications.value : this.medications,
@@ -3301,6 +3384,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   MedicalCard copyWithCompanion(MedicalCardsCompanion data) {
     return MedicalCard(
       id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
       bloodType: data.bloodType.present ? data.bloodType.value : this.bloodType,
       allergies: data.allergies.present ? data.allergies.value : this.allergies,
       medications: data.medications.present
@@ -3316,6 +3400,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   String toString() {
     return (StringBuffer('MedicalCard(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('bloodType: $bloodType, ')
           ..write('allergies: $allergies, ')
           ..write('medications: $medications, ')
@@ -3325,13 +3410,20 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, bloodType, allergies, medications, emergencyNotes);
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    bloodType,
+    allergies,
+    medications,
+    emergencyNotes,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is MedicalCard &&
           other.id == this.id &&
+          other.userId == this.userId &&
           other.bloodType == this.bloodType &&
           other.allergies == this.allergies &&
           other.medications == this.medications &&
@@ -3340,6 +3432,7 @@ class MedicalCard extends DataClass implements Insertable<MedicalCard> {
 
 class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   final Value<String> id;
+  final Value<String> userId;
   final Value<String> bloodType;
   final Value<String?> allergies;
   final Value<String?> medications;
@@ -3347,6 +3440,7 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   final Value<int> rowid;
   const MedicalCardsCompanion({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     this.bloodType = const Value.absent(),
     this.allergies = const Value.absent(),
     this.medications = const Value.absent(),
@@ -3355,15 +3449,18 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   });
   MedicalCardsCompanion.insert({
     required String id,
+    required String userId,
     required String bloodType,
     this.allergies = const Value.absent(),
     this.medications = const Value.absent(),
     this.emergencyNotes = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
+       userId = Value(userId),
        bloodType = Value(bloodType);
   static Insertable<MedicalCard> custom({
     Expression<String>? id,
+    Expression<String>? userId,
     Expression<String>? bloodType,
     Expression<String>? allergies,
     Expression<String>? medications,
@@ -3372,6 +3469,7 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
       if (bloodType != null) 'blood_type': bloodType,
       if (allergies != null) 'allergies': allergies,
       if (medications != null) 'medications': medications,
@@ -3382,6 +3480,7 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
 
   MedicalCardsCompanion copyWith({
     Value<String>? id,
+    Value<String>? userId,
     Value<String>? bloodType,
     Value<String?>? allergies,
     Value<String?>? medications,
@@ -3390,6 +3489,7 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   }) {
     return MedicalCardsCompanion(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       bloodType: bloodType ?? this.bloodType,
       allergies: allergies ?? this.allergies,
       medications: medications ?? this.medications,
@@ -3403,6 +3503,9 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (bloodType.present) {
       map['blood_type'] = Variable<String>(bloodType.value);
@@ -3426,6 +3529,7 @@ class MedicalCardsCompanion extends UpdateCompanion<MedicalCard> {
   String toString() {
     return (StringBuffer('MedicalCardsCompanion(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('bloodType: $bloodType, ')
           ..write('allergies: $allergies, ')
           ..write('medications: $medications, ')
@@ -3473,6 +3577,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<String?> token,
       Value<int> batteryLevel,
       Value<String?> pinHash,
+      Value<String?> passwordHash,
       Value<int> rowid,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
@@ -3483,6 +3588,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String?> token,
       Value<int> batteryLevel,
       Value<String?> pinHash,
+      Value<String?> passwordHash,
       Value<int> rowid,
     });
 
@@ -3544,6 +3650,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get pinHash => $composableBuilder(
     column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3611,6 +3722,11 @@ class $$UsersTableOrderingComposer
     column: $table.pinHash,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -3641,6 +3757,11 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get pinHash =>
       $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => column,
+  );
 
   Expression<T> medicationsRefs<T extends Object>(
     Expression<T> Function($$MedicationsTableAnnotationComposer a) f,
@@ -3702,6 +3823,7 @@ class $$UsersTableTableManager
                 Value<String?> token = const Value.absent(),
                 Value<int> batteryLevel = const Value.absent(),
                 Value<String?> pinHash = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
@@ -3710,6 +3832,7 @@ class $$UsersTableTableManager
                 token: token,
                 batteryLevel: batteryLevel,
                 pinHash: pinHash,
+                passwordHash: passwordHash,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3720,6 +3843,7 @@ class $$UsersTableTableManager
                 Value<String?> token = const Value.absent(),
                 Value<int> batteryLevel = const Value.absent(),
                 Value<String?> pinHash = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
@@ -3728,6 +3852,7 @@ class $$UsersTableTableManager
                 token: token,
                 batteryLevel: batteryLevel,
                 pinHash: pinHash,
+                passwordHash: passwordHash,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5750,6 +5875,7 @@ typedef $$EmergencyContactsTableProcessedTableManager =
 typedef $$MedicalCardsTableCreateCompanionBuilder =
     MedicalCardsCompanion Function({
       required String id,
+      required String userId,
       required String bloodType,
       Value<String?> allergies,
       Value<String?> medications,
@@ -5759,6 +5885,7 @@ typedef $$MedicalCardsTableCreateCompanionBuilder =
 typedef $$MedicalCardsTableUpdateCompanionBuilder =
     MedicalCardsCompanion Function({
       Value<String> id,
+      Value<String> userId,
       Value<String> bloodType,
       Value<String?> allergies,
       Value<String?> medications,
@@ -5777,6 +5904,11 @@ class $$MedicalCardsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5815,6 +5947,11 @@ class $$MedicalCardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get bloodType => $composableBuilder(
     column: $table.bloodType,
     builder: (column) => ColumnOrderings(column),
@@ -5847,6 +5984,9 @@ class $$MedicalCardsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get bloodType =>
       $composableBuilder(column: $table.bloodType, builder: (column) => column);
@@ -5897,6 +6037,7 @@ class $$MedicalCardsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
                 Value<String> bloodType = const Value.absent(),
                 Value<String?> allergies = const Value.absent(),
                 Value<String?> medications = const Value.absent(),
@@ -5904,6 +6045,7 @@ class $$MedicalCardsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => MedicalCardsCompanion(
                 id: id,
+                userId: userId,
                 bloodType: bloodType,
                 allergies: allergies,
                 medications: medications,
@@ -5913,6 +6055,7 @@ class $$MedicalCardsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                required String userId,
                 required String bloodType,
                 Value<String?> allergies = const Value.absent(),
                 Value<String?> medications = const Value.absent(),
@@ -5920,6 +6063,7 @@ class $$MedicalCardsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => MedicalCardsCompanion.insert(
                 id: id,
+                userId: userId,
                 bloodType: bloodType,
                 allergies: allergies,
                 medications: medications,

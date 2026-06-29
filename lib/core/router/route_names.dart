@@ -13,4 +13,5 @@ class RouteNames {
   static const String medicationAdd = 'medications-add';
   static const String caregiver = 'caregiver';
   static const String settings = 'settings';
+  static const String voiceNavigation = 'voice-navigation';
 }

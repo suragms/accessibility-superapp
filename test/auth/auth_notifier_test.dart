@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'package:accessibility_super_app/core/database/app_database.dart';
 import 'package:accessibility_super_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:accessibility_super_app/features/auth/domain/exceptions/auth_exception.dart';
 import 'package:accessibility_super_app/features/auth/presentation/controllers/auth_notifier.dart';
@@ -20,7 +21,11 @@ class MockAuthRepository extends AuthRepository {
   }) : super(
           dio: Dio(),
           secureStorage: const FlutterSecureStorage(),
+          database: AppDatabase(),
         );
+
+  @override
+  Future<UserSession?> restoreSession() async => null;
 
   @override
   Future<UserSession> loginWithEmail(String email, String password) async {
@@ -36,7 +41,10 @@ class MockAuthRepository extends AuthRepository {
       throw PinNotSetException();
     }
     if (pin == cachedPin) {
-      return const UserSession(userId: 'mock-uid-123', email: 'cached.user@mock.com');
+      return const UserSession(
+        userId: 'mock-uid-123',
+        email: 'cached.user@mock.com',
+      );
     }
     throw InvalidCredentialsException(message: 'Incorrect PIN entered.');
   }
@@ -56,7 +64,7 @@ class MockAuthRepository extends AuthRepository {
 
 void main() {
   group('AuthNotifier Tests', () {
-    test('Verify initial state is AuthInitial', () {
+    test('Verify initial state resolves to Unauthenticated after restoreSession', () async {
       final container = ProviderContainer(
         overrides: [
           authRepositoryProvider.overrideWithValue(
@@ -66,7 +74,15 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      expect(container.read(authNotifierProvider), isA<AuthInitial>());
+      // restoreSession() is called in the constructor as fire-and-forget async.
+      // Keep yielding until state settles past AuthLoading.
+      for (var i = 0; i < 200; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        if (container.read(authNotifierProvider) is! AuthLoading) break;
+      }
+
+      final currentState = container.read(authNotifierProvider);
+      expect(currentState, isA<Unauthenticated>());
     });
 
     test('Verify successful email login state flow', () async {
@@ -78,6 +94,9 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+
+      // Allow restoreSession to complete
+      await Future.delayed(Duration.zero);
 
       final notifier = container.read(authNotifierProvider.notifier);
 
@@ -92,7 +111,10 @@ void main() {
       // Expect transitioning to Authenticated with correct session
       final finalState = container.read(authNotifierProvider);
       expect(finalState, isA<Authenticated>());
-      expect((finalState as Authenticated).session.email, equals('user@mock.com'));
+      expect(
+        (finalState as Authenticated).session.email,
+        equals('user@mock.com'),
+      );
     });
 
     test('Verify invalid credentials email login state flow', () async {
@@ -105,10 +127,14 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      // Allow restoreSession to complete
+      await Future.delayed(Duration.zero);
+
       final notifier = container.read(authNotifierProvider.notifier);
 
       // Trigger login
-      final loginFuture = notifier.loginWithEmail('wrong@mock.com', 'wrong_pass');
+      final loginFuture =
+          notifier.loginWithEmail('wrong@mock.com', 'wrong_pass');
 
       expect(container.read(authNotifierProvider), isA<AuthLoading>());
 
@@ -133,6 +159,9 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      // Allow restoreSession to complete
+      await Future.delayed(Duration.zero);
+
       final notifier = container.read(authNotifierProvider.notifier);
 
       // Trigger PIN login
@@ -145,7 +174,10 @@ void main() {
       // Expect transitioning to Authenticated
       final finalState = container.read(authNotifierProvider);
       expect(finalState, isA<Authenticated>());
-      expect((finalState as Authenticated).session.email, equals('cached.user@mock.com'));
+      expect(
+        (finalState as Authenticated).session.email,
+        equals('cached.user@mock.com'),
+      );
     });
 
     test('Verify guest session state flow', () async {
@@ -157,6 +189,9 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+
+      // Allow restoreSession to complete
+      await Future.delayed(Duration.zero);
 
       final notifier = container.read(authNotifierProvider.notifier);
 

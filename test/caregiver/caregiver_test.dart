@@ -98,7 +98,7 @@ void main() {
 
     test('Verify CaregiverController invite pipeline', () async {
       final mockRepo = MockCaregiverRepository();
-      final hardware = const HardwareService();
+      final hardware = HardwareService();
 
       final container = ProviderContainer(
         overrides: [
@@ -127,7 +127,7 @@ void main() {
 
     test('Verify privacy consents permissions updates', () async {
       final mockRepo = MockCaregiverRepository();
-      final hardware = const HardwareService();
+      final hardware = HardwareService();
 
       final container = ProviderContainer(
         overrides: [

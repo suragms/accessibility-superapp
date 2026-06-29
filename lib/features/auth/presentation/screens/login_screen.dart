@@ -184,6 +184,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 SizedBox(height: tokens.spaceLarge),
 
+                // Create Account link
+                AccessibleButton(
+                  style: AccessibleButtonStyle.text,
+                  onPressed: () {
+                    context.push('/signup');
+                  },
+                  semanticLabel: 'Create a new account. Double tap to sign up.',
+                  child: const Text("Don't have an account? Create one"),
+                ),
+                SizedBox(height: tokens.spaceLarge),
+
                 // Social Logins Header
                 Row(
                   children: [

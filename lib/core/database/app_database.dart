@@ -30,7 +30,24 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? conn.openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          // Fresh install – create all tables
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // v1 -> v2: add passwordHash column for offline email/password auth
+            await m.addColumn(users, users.passwordHash);
+          }
+          if (from < 3) {
+            // v2 -> v3: add userId column to MedicalCards for per-user scoping
+            await m.addColumn(medicalCards, medicalCards.userId);
+          }
+        },
+      );
 
   // Transaction support for offline sync commits
   Future<void> syncOfflineLogs(List<MedicationLog> logs) async {

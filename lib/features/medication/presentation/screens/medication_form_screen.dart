@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/accessibility/widgets/accessible_focus_group.dart';
 import '../../../../core/accessibility/widgets/accessible_focus_ring.dart';
+import '../../../../core/providers/current_user_provider.dart';
 import '../../../../core/theme/accessibility_tokens.dart';
 import '../../../../core/widgets/accessible_button.dart';
 import '../../../../core/widgets/accessible_text_field.dart';
@@ -63,9 +64,17 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
       return;
     }
 
+    final userId = currentUserId(ref);
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No active user session. Please log in again.')),
+      );
+      return;
+    }
+
     final model = MedicationModel(
       id: const Uuid().v4(),
-      userId: 'default-user-uid',
+      userId: userId,
       name: name,
       dosage: dosage,
       cronSchedule: schedule,
