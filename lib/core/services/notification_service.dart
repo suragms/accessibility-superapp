@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -37,6 +38,7 @@ class NotificationService {
   /// Initializes the notification plugin for both Android and iOS.
   /// Must be called once at app startup (typically in main.dart).
   static Future<void> initialize(FlutterLocalNotificationsPlugin plugin) async {
+    if (kIsWeb) return;
     tz.initializeTimeZones();
 
     // Android initialization
@@ -57,7 +59,7 @@ class NotificationService {
     await plugin.initialize(initSettings);
 
     // Create the medication reminder notification channel on Android
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       final androidPlugin =
           plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidPlugin != null) {
@@ -93,6 +95,8 @@ class NotificationService {
         soundPath: soundPath,
       ),
     );
+
+    if (kIsWeb) return;
 
     // Schedule the real OS-level notification
     final tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
@@ -138,6 +142,8 @@ class NotificationService {
   Future<void> cancelNotification(String id) async {
     _activeAlarms.removeWhere((alarm) => alarm.id == id);
 
+    if (kIsWeb) return;
+
     // Cancel the real OS notification
     final notificationId = id.hashCode;
     await _plugin.cancel(notificationId);
@@ -146,6 +152,8 @@ class NotificationService {
   /// Silences all notifications.
   Future<void> cancelAllNotifications() async {
     _activeAlarms.clear();
+
+    if (kIsWeb) return;
 
     // Cancel all real OS notifications
     await _plugin.cancelAll();

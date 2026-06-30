@@ -36,6 +36,7 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           // Fresh install – create all tables
+          await m.createAll();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
